@@ -206,14 +206,16 @@ scatter_norm_counts <- function(labeled_results, dds_obj, num_genes) {
   
   plot_data <- counts_long %>%
     dplyr::left_join(col_data, by = "samplename") %>%
-    dplyr::filter(normalized_count > 0) %>%
-    dplyr::mutate(genes = factor(genes, levels = available_genes))
+    dplyr::filter(!is.na(normalized_count), normalized_count > 0) %>%
+    dplyr::mutate(
+      genes = factor(genes, levels = available_genes)
+    )
   
   ggplot2::ggplot(
     plot_data,
     ggplot2::aes(x = timepoint, y = normalized_count, color = timepoint)
   ) +
-    ggplot2::geom_jitter(width = 0.15, height = 0) +
+    ggplot2::geom_jitter(width = 0.15, height = 0, na.rm = TRUE) +
     ggplot2::facet_wrap(~genes, scales = "free_y") +
     ggplot2::scale_y_continuous(trans = "log10") +
     ggplot2::labs(
@@ -247,7 +249,7 @@ plot_volcano <- function(labeled_results) {
       color = volc_plot_status
     )
   ) +
-    ggplot2::geom_point() +
+    ggplot2::geom_point(na.rm = TRUE) +
     ggplot2::labs(
       x = "log2 fold change",
       y = "-log10(padj)"
