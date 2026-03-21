@@ -325,13 +325,13 @@ make_ranked_log2fc <- function(labeled_results, id2gene_path) {
         dplyr::filter(!is.na(log2FoldChange)) %>%
         dplyr::left_join(id_map, by = c("genes" = "gene_id")) %>%
         dplyr::filter(!is.na(symbol)) %>%
-        dplyr::arrange(dplyr::desc(log2FoldChange)) %>%
-        dplyr::distinct(symbol, .keep_all = TRUE)
+        dplyr::group_by(symbol) %>%
+        dplyr::slice_max(order_by = abs(log2FoldChange), n = 1, with_ties = FALSE) %>%
+        dplyr::ungroup() %>%
+        dplyr::arrange(dplyr::desc(log2FoldChange))
 
     stats_vec <- ranked_tbl$log2FoldChange
-    names(stats_vec) <- ranked_tbl$symbol
-
-    stats_vec
+    stats::setNames(stats_vec, ranked_tbl$symbol)
 }
 
 #' Function to run fgsea with arguments for min and max gene set size
