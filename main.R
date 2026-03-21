@@ -190,60 +190,61 @@ plot_log2fc <- function(labeled_results, padj_threshold) {
 #'
 #' @examples norm_counts_plot <- scatter_norm_counts(labeled_results, dds, 10)
 scatter_norm_counts <- function(labeled_results, dds_obj, num_genes){
-    res_tbl <- labeled_results
-    if (!"genes" %in% names(res_tbl)) {
-        res_tbl <- tibble::rownames_to_column(as.data.frame(res_tbl), var = "genes")
-    } else {
-        res_tbl <- tibble::as_tibble(res_tbl)
-    }
-
-    top_genes <- res_tbl %>%
-        dplyr::filter(!is.na(padj)) %>%
-        dplyr::arrange(padj, dplyr::desc(abs(log2FoldChange))) %>%
-        dplyr::slice_head(n = num_genes) %>%
-        dplyr::pull(genes)
-
-    norm_counts <- DESeq2::counts(dds_obj, normalized = TRUE)
-    available_genes <- top_genes[top_genes %in% rownames(norm_counts)]
-
-    if (length(available_genes) == 0) {
-        stop("None of the requested genes are present in the normalized count matrix.")
-    }
-
-    counts_long <- norm_counts[available_genes, , drop = FALSE] %>%
-        as.data.frame() %>%
-        tibble::rownames_to_column(var = "genes") %>%
-        tidyr::pivot_longer(
-            cols = -genes,
-            names_to = "samplename",
-            values_to = "normalized_count"
-        )
-
-    col_data <- as.data.frame(SummarizedExperiment::colData(dds_obj))
-    plot_data <- counts_long %>%
-        dplyr::left_join(col_data, by = "samplename") %>%
-        dplyr::mutate(
-            genes = factor(genes, levels = available_genes)
-        )
-
-    ggplot2::ggplot(
-        plot_data,
-        ggplot2::aes(
-            x = timepoint,
-            y = normalized_count,
-            color = timepoint
-        )
+  res_tbl <- labeled_results
+  if (!"genes" %in% names(res_tbl)) {
+    res_tbl <- tibble::rownames_to_column(as.data.frame(res_tbl), var = "genes")
+  } else {
+    res_tbl <- tibble::as_tibble(res_tbl)
+  }
+  
+  top_genes <- res_tbl %>%
+    dplyr::filter(!is.na(padj)) %>%
+    dplyr::arrange(padj, dplyr::desc(abs(log2FoldChange))) %>%
+    dplyr::slice_head(n = num_genes) %>%
+    dplyr::pull(genes)
+  
+  norm_counts <- DESeq2::counts(dds_obj, normalized = TRUE)
+  available_genes <- top_genes[top_genes %in% rownames(norm_counts)]
+  
+  if (length(available_genes) == 0) {
+    stop("None of the requested genes are present in the normalized count matrix.")
+  }
+  
+  counts_long <- norm_counts[available_genes, , drop = FALSE] %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column(var = "genes") %>%
+    tidyr::pivot_longer(
+      cols = -genes,
+      names_to = "samplename",
+      values_to = "normalized_count"
+    )
+  
+  col_data <- as.data.frame(SummarizedExperiment::colData(dds_obj))
+  
+  plot_data <- counts_long %>%
+    dplyr::left_join(col_data, by = "samplename") %>%
+    dplyr::mutate(
+      genes = factor(genes, levels = available_genes)
+    )
+  
+  ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(
+      x = timepoint,
+      y = normalized_count,
+      color = timepoint
+    )
+  ) +
+    ggplot2::geom_jitter(width = 0.15, height = 0, size = 2) +
+    ggplot2::facet_wrap(~genes, scales = "free_y") +
+    ggplot2::scale_y_continuous(trans = "log10") +
+    ggplot2::labs(
+      x = "Timepoint",
+      y = "Normalized counts (log10 scale)",
+      color = "Timepoint",
+      title = "Normalized counts for top DE genes"
     ) +
-        ggplot2::geom_jitter(width = 0.15, height = 0, size = 2) +
-        ggplot2::facet_wrap(~genes, scales = "free_y") +
-        ggplot2::scale_y_continuous(trans = "log10") +
-        ggplot2::labs(
-            x = "Timepoint",
-            y = "Normalized counts (log10 scale)",
-            color = "Timepoint",
-            title = "Normalized counts for top DE genes"
-        ) +
-        ggplot2::theme_bw()
+    ggplot2::theme_bw()
 }
 
 #' Function to generate volcano plot from DESeq2 results
