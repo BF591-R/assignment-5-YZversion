@@ -367,10 +367,11 @@ top_pathways <- function(fgsea_results, num_paths) {
   
   combined <- dplyr::bind_rows(pos, neg) %>%
     dplyr::mutate(
+      direction = dplyr::if_else(NES > 0, "Positive NES", "Negative NES"),
       pathway = forcats::fct_reorder(pathway, NES)
     )
   
-  ggplot2::ggplot(combined, ggplot2::aes(x = pathway, y = NES)) +
+  ggplot2::ggplot(combined, ggplot2::aes(x = pathway, y = NES, fill = direction)) +
     ggplot2::geom_col() +
     ggplot2::coord_flip() +
     ggplot2::labs(
