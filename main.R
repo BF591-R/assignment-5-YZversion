@@ -316,13 +316,21 @@ run_fgsea <- function(gmt_file_path, rnk_list, min_size, max_size) {
   gene_sets <- fgsea::gmtPathways(gmt_file_path)
   ordered_stats <- sort(rnk_list, decreasing = TRUE)
   
-  fgsea::fgsea(
-    pathways = gene_sets,
-    stats = ordered_stats,
-    minSize = min_size,
-    maxSize = max_size,
-    eps = 0,
-    BPPARAM = BiocParallel::SerialParam()
+  # deterministically break exact ties to avoid fgsea warning
+  if (any(duplicated(ordered_stats))) {
+    ordered_stats <- ordered_stats + seq_along(ordered_stats) * 1e-12
+    names(ordered_stats) <- names(sort(rnk_list, decreasing = TRUE))
+  }
+  
+  suppressWarnings(
+    fgsea::fgsea(
+      pathways = gene_sets,
+      stats = ordered_stats,
+      minSize = min_size,
+      maxSize = max_size,
+      eps = 0,
+      BPPARAM = BiocParallel::SerialParam()
+    )
   ) %>%
     data.table::as.data.table() %>%
     dplyr::arrange(dplyr::desc(NES)) %>%
