@@ -181,7 +181,11 @@ scatter_norm_counts <- function(labeled_results, dds_obj, num_genes) {
   }
   
   top_genes <- res_tbl %>%
-    dplyr::filter(!is.na(padj)) %>%
+    dplyr::filter(
+      !is.na(padj),
+      padj < 0.10,
+      !is.na(log2FoldChange)
+    ) %>%
     dplyr::arrange(padj, dplyr::desc(abs(log2FoldChange))) %>%
     dplyr::slice_head(n = num_genes) %>%
     dplyr::pull(genes)
