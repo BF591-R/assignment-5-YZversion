@@ -342,39 +342,31 @@ run_fgsea <- function(gmt_file_path, rnk_list, min_size, max_size) {
 #' @export
 #'
 #' @examples fgsea_plot <- top_pathways(fgsea_results, 10)
-top_pathways <- function(fgsea_results, num_paths){
-    if (!"pathway" %in% names(fgsea_results) || !"NES" %in% names(fgsea_results)) {
-        stop("fgsea_results must contain 'pathway' and 'NES' columns.")
-    }
-
-    pos <- fgsea_results %>%
-        dplyr::filter(NES > 0) %>%
-        dplyr::arrange(dplyr::desc(NES)) %>%
-        dplyr::slice_head(n = num_paths)
-
-    neg <- fgsea_results %>%
-        dplyr::filter(NES < 0) %>%
-        dplyr::arrange(NES) %>%
-        dplyr::slice_head(n = num_paths)
-
-    combined <- dplyr::bind_rows(pos, neg) %>%
-        dplyr::mutate(
-            direction = dplyr::if_else(NES >= 0, "Positive NES", "Negative NES"),
-            pathway = forcats::fct_reorder(pathway, NES)
-        )
-
-    ggplot2::ggplot(combined, ggplot2::aes(x = pathway, y = NES, fill = direction)) +
-        ggplot2::geom_col() +
-        ggplot2::coord_flip() +
-        ggplot2::scale_fill_manual(
-            values = c("Positive NES" = "#009E73", "Negative NES" = "#CC79A7")
-        ) +
-        ggplot2::labs(
-            x = "Pathway",
-            y = "Normalized Enrichment Score",
-            fill = "Direction",
-            title = "Top pathways by NES"
-        ) +
-        ggplot2::theme_bw()
+top_pathways <- function(fgsea_results, num_paths) {
+  if (!"pathway" %in% names(fgsea_results) || !"NES" %in% names(fgsea_results)) {
+    stop("fgsea_results must contain 'pathway' and 'NES' columns.")
+  }
+  
+  pos <- fgsea_results %>%
+    dplyr::filter(NES > 0) %>%
+    dplyr::arrange(dplyr::desc(NES)) %>%
+    dplyr::slice_head(n = num_paths)
+  
+  neg <- fgsea_results %>%
+    dplyr::filter(NES < 0) %>%
+    dplyr::arrange(NES) %>%
+    dplyr::slice_head(n = num_paths)
+  
+  combined <- dplyr::bind_rows(pos, neg) %>%
+    dplyr::mutate(
+      pathway = forcats::fct_reorder(pathway, NES)
+    )
+  
+  ggplot2::ggplot(combined, ggplot2::aes(x = pathway, y = NES)) +
+    ggplot2::geom_col() +
+    ggplot2::coord_flip() +
+    ggplot2::labs(
+      x = "Pathway",
+      y = "Normalized Enrichment Score"
+    )
 }
-
