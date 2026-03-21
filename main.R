@@ -124,21 +124,15 @@ label_res <- function(deseq2_res, padj_threshold) {
 #'
 #' @examples pval_plot <- plot_pvals(labeled_results)
 plot_pvals <- function(labeled_results) {
-    labeled_results %>%
-        dplyr::filter(!is.na(pvalue)) %>%
-        ggplot2::ggplot(ggplot2::aes(x = pvalue)) +
-        ggplot2::geom_histogram(
-            binwidth = 0.025,
-            boundary = 0,
-            color = "white",
-            fill = "#56B4E9"
-        ) +
-        ggplot2::labs(
-            x = "Raw p-value",
-            y = "Count",
-            title = "Distribution of raw p-values"
-        ) +
-        ggplot2::theme_minimal()
+  ggplot2::ggplot(
+    dplyr::filter(labeled_results, !is.na(pvalue)),
+    ggplot2::aes(x = pvalue)
+  ) +
+    ggplot2::geom_histogram(binwidth = 0.025) +
+    ggplot2::labs(
+      x = "Raw p-value",
+      y = "Count"
+    )
 }
 
 #' Function to plot the log2foldchange from DESeq2 results in a histogram
@@ -153,26 +147,15 @@ plot_pvals <- function(labeled_results) {
 #'
 #' @examples log2fc_plot <- plot_log2fc(labeled_results, .10)
 plot_log2fc <- function(labeled_results, padj_threshold) {
-    sig <- labeled_results %>%
-        dplyr::filter(!is.na(padj), padj < padj_threshold, !is.na(log2FoldChange))
-
-    if (nrow(sig) == 0) {
-        warning("No genes pass the supplied padj threshold; returning empty plot.")
-        sig <- tibble::tibble(log2FoldChange = numeric())
-    }
-
-    ggplot2::ggplot(sig, ggplot2::aes(x = log2FoldChange)) +
-        ggplot2::geom_histogram(
-            binwidth = 0.25,
-            color = "white",
-            fill = "#0072B2"
-        ) +
-        ggplot2::labs(
-            x = "log2 fold change",
-            y = "Count",
-            title = "log2 fold changes for significant genes"
-        ) +
-        ggplot2::theme_minimal()
+  sig <- labeled_results %>%
+    dplyr::filter(!is.na(padj), padj < padj_threshold, !is.na(log2FoldChange))
+  
+  ggplot2::ggplot(sig, ggplot2::aes(x = log2FoldChange)) +
+    ggplot2::geom_histogram(binwidth = 0.25) +
+    ggplot2::labs(
+      x = "log2 fold change",
+      y = "Count"
+    )
 }
 
 #' Function to make scatter plot of normalized counts for top ten genes ranked
@@ -189,7 +172,7 @@ plot_log2fc <- function(labeled_results, padj_threshold) {
 #' @export
 #'
 #' @examples norm_counts_plot <- scatter_norm_counts(labeled_results, dds, 10)
-scatter_norm_counts <- function(labeled_results, dds_obj, num_genes){
+scatter_norm_counts <- function(labeled_results, dds_obj, num_genes) {
   res_tbl <- labeled_results
   if (!"genes" %in% names(res_tbl)) {
     res_tbl <- tibble::rownames_to_column(as.data.frame(res_tbl), var = "genes")
@@ -223,30 +206,21 @@ scatter_norm_counts <- function(labeled_results, dds_obj, num_genes){
   
   plot_data <- counts_long %>%
     dplyr::left_join(col_data, by = "samplename") %>%
-    dplyr::mutate(
-      genes = factor(genes, levels = available_genes)
-    )
+    dplyr::filter(normalized_count > 0) %>%
+    dplyr::mutate(genes = factor(genes, levels = available_genes))
   
   ggplot2::ggplot(
     plot_data,
-    ggplot2::aes(
-      x = timepoint,
-      y = normalized_count,
-      color = timepoint
-    )
+    ggplot2::aes(x = timepoint, y = normalized_count, color = timepoint)
   ) +
-    ggplot2::geom_jitter(width = 0.15, height = 0, size = 2) +
+    ggplot2::geom_jitter(width = 0.15, height = 0) +
     ggplot2::facet_wrap(~genes, scales = "free_y") +
     ggplot2::scale_y_continuous(trans = "log10") +
     ggplot2::labs(
       x = "Timepoint",
-      y = "Normalized counts (log10 scale)",
-      color = "Timepoint",
-      title = "Normalized counts for top DE genes"
-    ) +
-    ggplot2::theme_bw()
+      y = "Normalized counts"
+    )
 }
-
 #' Function to generate volcano plot from DESeq2 results
 #'
 #' @param labeled_results (tibble): Tibble with DESeq2 results and one
@@ -259,35 +233,25 @@ scatter_norm_counts <- function(labeled_results, dds_obj, num_genes){
 #' @examples volcano_plot <- plot_volcano(labeled_results)
 #' 
 plot_volcano <- function(labeled_results) {
-    plot_data <- labeled_results %>%
-        dplyr::mutate(
-            padj_for_plot = dplyr::if_else(
-                !is.na(padj) & padj > 0,
-                padj,
-                NA_real_
-            ),
-            neg_log10_padj = -log10(padj_for_plot)
-        )
-
-    ggplot2::ggplot(
-        plot_data,
-        ggplot2::aes(
-            x = log2FoldChange,
-            y = neg_log10_padj,
-            color = volc_plot_status
-        )
-    ) +
-        ggplot2::geom_point(alpha = 0.8) +
-        ggplot2::scale_color_manual(
-            values = c(UP = "#D55E00", DOWN = "#0072B2", NS = "grey80")
-        ) +
-        ggplot2::labs(
-            x = "log2 fold change",
-            y = "-log10(padj)",
-            color = "Status",
-            title = "Volcano plot of differential expression results"
-        ) +
-        ggplot2::theme_minimal()
+  plot_data <- labeled_results %>%
+    dplyr::filter(!is.na(log2FoldChange), !is.na(padj), padj > 0) %>%
+    dplyr::mutate(
+      neg_log10_padj = -log10(padj)
+    )
+  
+  ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(
+      x = log2FoldChange,
+      y = neg_log10_padj,
+      color = volc_plot_status
+    )
+  ) +
+    ggplot2::geom_point() +
+    ggplot2::labs(
+      x = "log2 fold change",
+      y = "-log10(padj)"
+    )
 }
 
 #' Function to generate a named vector ranked by log2FC descending
