@@ -40,12 +40,9 @@ make_se <- function(counts_csv, metafile_csv, selected_times) {
         tibble::column_to_rownames("gene") %>%
         as.matrix()
 
-    col_data <- S4Vectors::DataFrame(sample_df)
+    col_data <- as.data.frame(sample_df)
     rownames(col_data) <- col_data$samplename
-    col_data$timepoint <- factor(
-        col_data$timepoint,
-        levels = unique(col_data$timepoint)
-    )
+    col_data$timepoint <- factor(col_data$timepoint, levels = selected_times)
     if ("vP0" %in% levels(col_data$timepoint)) {
         col_data$timepoint <- stats::relevel(col_data$timepoint, ref = "vP0")
     }
@@ -222,9 +219,7 @@ scatter_norm_counts <- function(labeled_results, dds_obj, num_genes){
             values_to = "normalized_count"
         )
 
-    col_data <- as.data.frame(S4Vectors::colData(dds_obj)) %>%
-        tibble::rownames_to_column(var = "samplename")
-
+    col_data <- as.data.frame(SummarizedExperiment::colData(dds_obj))
     plot_data <- counts_long %>%
         dplyr::left_join(col_data, by = "samplename") %>%
         dplyr::mutate(
@@ -347,23 +342,24 @@ make_ranked_log2fc <- function(labeled_results, id2gene_path) {
 #'
 #' @examples fgsea_results <- run_fgsea('data/m2.cp.v2023.1.Mm.symbols.gmt', rnk_list, 15, 500)
 run_fgsea <- function(gmt_file_path, rnk_list, min_size, max_size) {
-    if (length(rnk_list) == 0) {
-        stop("Ranked list is empty; cannot run fgsea.")
-    }
-
-    gene_sets <- fgsea::gmtPathways(gmt_file_path)
-    ordered_stats <- sort(rnk_list, decreasing = TRUE)
-
-    fgsea::fgsea(
-        pathways = gene_sets,
-        stats = ordered_stats,
-        minSize = min_size,
-        maxSize = max_size,
-        eps = 0
-    ) %>%
-        data.table::as.data.table() %>%
-        dplyr::arrange(dplyr::desc(NES)) %>%
-        tibble::as_tibble()
+  if (length(rnk_list) == 0) {
+    stop("Ranked list is empty; cannot run fgsea.")
+  }
+  
+  gene_sets <- fgsea::gmtPathways(gmt_file_path)
+  ordered_stats <- sort(rnk_list, decreasing = TRUE)
+  
+  fgsea::fgsea(
+    pathways = gene_sets,
+    stats = ordered_stats,
+    minSize = min_size,
+    maxSize = max_size,
+    eps = 0,
+    BPPARAM = BiocParallel::SerialParam()
+  ) %>%
+    data.table::as.data.table() %>%
+    dplyr::arrange(dplyr::desc(NES)) %>%
+    tibble::as_tibble()
 }
 
 #' Function to plot top ten positive NES and top ten negative NES pathways
