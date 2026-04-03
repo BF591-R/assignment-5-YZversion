@@ -21,13 +21,21 @@ library('fgsea')
 #'
 #' @examples se <- make_se('verse_counts.tsv', 'sample_metadata.csv', c('vP0', 'vAd'))
 make_se <- function(counts_csv, metafile_csv, selected_times) {
+    selected_times <- unlist(selected_times)
     counts_df <- readr::read_tsv(counts_csv, show_col_types = FALSE)
     metadata <- readr::read_csv(metafile_csv, show_col_types = FALSE)
+
+    time_levels <- if ("vP0" %in% selected_times) {
+        c("vP0", setdiff(selected_times, "vP0"))
+    } else {
+        selected_times
+    }
 
     sample_df <- metadata %>%
         dplyr::filter(timepoint %in% selected_times) %>%
         dplyr::select(samplename, timepoint) %>%
-        dplyr::arrange(factor(timepoint, levels = selected_times), samplename)
+        dplyr::mutate(timepoint = factor(timepoint, levels = time_levels)) %>%
+        dplyr::arrange(timepoint, samplename)
 
     if (nrow(sample_df) == 0) {
         stop("No samples found for the requested timepoints.")
@@ -39,13 +47,11 @@ make_se <- function(counts_csv, metafile_csv, selected_times) {
     counts_mat <- counts_subset %>%
         tibble::column_to_rownames("gene") %>%
         as.matrix()
+    storage.mode(counts_mat) <- "integer"
 
-    col_data <- as.data.frame(sample_df)
+    col_data <- S4Vectors::DataFrame(sample_df)
     rownames(col_data) <- col_data$samplename
-    col_data$timepoint <- factor(col_data$timepoint, levels = selected_times)
-    if ("vP0" %in% levels(col_data$timepoint)) {
-        col_data$timepoint <- stats::relevel(col_data$timepoint, ref = "vP0")
-    }
+    col_data$timepoint <- factor(col_data$timepoint, levels = time_levels)
 
     SummarizedExperiment::SummarizedExperiment(
         assays = list(counts = counts_mat),
@@ -283,20 +289,20 @@ make_ranked_log2fc <- function(labeled_results, id2gene_path) {
 
     id_map <- readr::read_tsv(
         id2gene_path,
-        col_names = c("gene_id", "symbol"),
+        col_names = FALSE,
         show_col_types = FALSE
-    )
+    ) %>%
+        rlang::set_names(c("gene_id", "symbol"))
 
     ranked_tbl <- res_tbl %>%
         dplyr::filter(!is.na(log2FoldChange)) %>%
-        dplyr::left_join(id_map, by = c("genes" = "gene_id")) %>%
-        dplyr::filter(!is.na(symbol)) %>%
-        dplyr::group_by(symbol) %>%
-        dplyr::slice_max(order_by = abs(log2FoldChange), n = 1, with_ties = FALSE) %>%
+        dplyr::inner_join(id_map, by = c("genes" = "gene_id")) %>%
+        dplyr::arrange(dplyr::desc(abs(log2FoldChange)), genes) %>%
+        dplyr::distinct(symbol, .keep_all = TRUE) %>%
         dplyr::ungroup() %>%
         dplyr::arrange(dplyr::desc(log2FoldChange))
 
-    stats_vec <- ranked_tbl$log2FoldChange
+    stats_vec <- as.numeric(ranked_tbl$log2FoldChange)
     stats::setNames(stats_vec, ranked_tbl$symbol)
 }
 
